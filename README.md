@@ -21,4 +21,6 @@ For this project, we are taked with answering two questions:
 
 2. Across the United States, which types of events have the greatest economic consequences?
 
-The goal is to answer these questions and give full documentation in a .Rmd file which we then knit and publish.  I'll include all necessary files here on Github, along with a link to the RPubs location as requested by the project.
+The goal is to answer these questions and give full documentation in a .Rmd file which we then knit and publish.  I'll include all necessary files here on Github.  This can be found on R pubs as well:
+
+[Project Document](http://rpubs.com/dssievewright/repro)
