@@ -1,13 +1,6 @@
----
-title: "Storm Effects on Health"
-output: 
-  html_document: 
-    keep_md: yes
----
+# Storm Effects on Health
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 ## Synopsis
 
@@ -25,51 +18,74 @@ Our goal is to answer the following two questions:
 
 We start by downloading the data set and reading it into R.  This first bit of code is set to eval=FALSE.  If you do need to download the file, run this code in R before reading in the table.
 
-```{r loading,eval=FALSE}
+
+```r
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "NOAAstorm.bz2")
 ```
 
 Now that the data is saved in NOAAstorm.bz2, we can read it and start our analysis.
 
-```{r reading,cache=TRUE}
+
+```r
 storm <- read.csv(bzfile("NOAAstorm.bz2"))
 ```
 
 This data was downloaded on July 31, 2017.  The two packages that are required for this are dplyr and ggplot2.  Let's load those now.
 
-```{r loadpackages, results='hide'}
+
+```r
 library(dplyr)
 library(ggplot2)
 ```
 
 For our first question, we will focus on both the injury and death columns.  And for the second question, we will look at the property damage column and property damage exponent.  All of this will be grouped by the event type so all analysis will be run on the following slimmed down table.
 
-```{r filteredstorm,cache=TRUE}
+
+```r
 storm <- storm %>% select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP) %>%
         group_by(EVTYPE)
 ```
 
 The last little bit of clean up is to take care of that PROPDMGEXP.  According to the documentation, this should be of a value K, M, or B to indicate, thousands, millions, or billions.  However, there are some other values here too:
 
-```{r Propdmgexpvalues}
+
+```r
 unique(storm$PROPDMGEXP)
 ```
 
-One can take educated guesses that the numeric values like "7" correspond with multiplying the damage cost by 10^7.  Also, we could assume H and h correspod with hundreds, m with millions
-The good news is that there are `r nrow(storm)` observations in our data and these other values make up a very small proportion of our data:
+```
+##  [1] K M   B m + 0 5 6 ? 4 2 3 h 7 H - 1 8
+## Levels:  - ? + 0 1 2 3 4 5 6 7 8 B h H K m M
+```
 
-```{r expnonkmb}
+One can take educated guesses that the numeric values like "7" correspond with multiplying the damage cost by 10^7.  Also, we could assume H and h correspod with hundreds, m with millions
+The good news is that there are 902297 observations in our data and these other values make up a very small proportion of our data:
+
+
+```r
 err <- sum(!(storm$PROPDMGEXP %in% c("", "K", "M", "B")))
 err
+```
+
+```
+## [1] 328
+```
+
+```r
 pcterr <- err/nrow(storm) *100
 pcterr
 ```
 
-Since we'll be adding up all these damages to determine the most expensive, the billions entry will overwhelm anything with a millions entry (or smaller).  Thus if we remove the `r pcterr` percent that don't correspond with the detailed values, it's not going to change the final cost values, especially if we only have three digits of accuracy.
+```
+## [1] 0.03635167
+```
+
+Since we'll be adding up all these damages to determine the most expensive, the billions entry will overwhelm anything with a millions entry (or smaller).  Thus if we remove the 0.0363517 percent that don't correspond with the detailed values, it's not going to change the final cost values, especially if we only have three digits of accuracy.
 
 So in the following chunk, we'll create a new function that takes in the property damage value and the "exponent" and outputs an actual cost value.  Then we'll apply it to our storm data set to creat a new column that contains these values.
 
-```{r costfunc,cache=TRUE}
+
+```r
 cost <- function(x){
         if(x[2] == "B"){as.numeric(x[1])*10^9}
         else if(x[2] == "M"){as.numeric(x[1])*10^6}
@@ -100,12 +116,39 @@ The first thing we can do is calculate which event caused the most combined inju
 
 In particular, we'll find the five most dangerous event types in terms of total deaths and injuries then look at the boxplots for each.  In the following output, I'm including the top 20 most dangeros event types so we can see a lot more data.  But we'll focus on the top five shortly after.
 
-```{r topfive}
+
+```r
 cas <- storm %>% summarize(injured = sum(INJURIES), dead = sum(FATALITIES))
 casfive <- cas %>% mutate(total = injured + dead) %>%
         arrange(desc(total))
 worstfive <- casfive[1:5,1]
 casfive[1:20,]
+```
+
+```
+## # A tibble: 20 x 4
+##                EVTYPE injured  dead total
+##                <fctr>   <dbl> <dbl> <dbl>
+##  1            TORNADO   91346  5633 96979
+##  2     EXCESSIVE HEAT    6525  1903  8428
+##  3          TSTM WIND    6957   504  7461
+##  4              FLOOD    6789   470  7259
+##  5          LIGHTNING    5230   816  6046
+##  6               HEAT    2100   937  3037
+##  7        FLASH FLOOD    1777   978  2755
+##  8          ICE STORM    1975    89  2064
+##  9  THUNDERSTORM WIND    1488   133  1621
+## 10       WINTER STORM    1321   206  1527
+## 11          HIGH WIND    1137   248  1385
+## 12               HAIL    1361    15  1376
+## 13  HURRICANE/TYPHOON    1275    64  1339
+## 14         HEAVY SNOW    1021   127  1148
+## 15           WILDFIRE     911    75   986
+## 16 THUNDERSTORM WINDS     908    64   972
+## 17           BLIZZARD     805   101   906
+## 18                FOG     734    62   796
+## 19        RIP CURRENT     232   368   600
+## 20   WILD/FOREST FIRE     545    12   557
 ```
 
 NOTES: 
@@ -128,7 +171,8 @@ NOTES:
 * I didn't use log(injuries + 1) or log(fatalaties + 1)
  because over 75% of the data is zero entries for each event type.
  
-```{r plotinjuries}
+
+```r
 storminjfat <- storm %>% filter(as.character(EVTYPE) %in% as.character(worstfive$EVTYPE))
 ggplot(storminjfat, aes(EVTYPE, log(INJURIES))) + 
         geom_boxplot() + 
@@ -137,15 +181,28 @@ ggplot(storminjfat, aes(EVTYPE, log(INJURIES))) +
         ggtitle("Injuries per Event")
 ```
 
+```
+## Warning: Removed 309845 rows containing non-finite values (stat_boxplot).
+```
+
+![](Storm_effects_on_health_files/figure-html/plotinjuries-1.png)<!-- -->
+
 Now we'll do the same with fatalities.
 
-```{r fatalities}
+
+```r
 ggplot(storminjfat, aes(EVTYPE, log(FATALITIES))) + 
         geom_boxplot() + 
         xlab("Event Type") + 
         ylab("log(fatalities)")+
         ggtitle("Fatalities per Event")
 ```
+
+```
+## Warning: Removed 319707 rows containing non-finite values (stat_boxplot).
+```
+
+![](Storm_effects_on_health_files/figure-html/fatalities-1.png)<!-- -->
 
 
 ### Question Two
@@ -160,12 +217,39 @@ Just like in question 1, we'll start by looking at a table of the most costly ev
 
 
 
-```{r mostcostly}
+
+```r
 cost <- storm %>% 
         summarize(cost_billions = signif(sum(totaldmg)/10^9,3)) %>% 
         arrange(desc(cost_billions))
 costlyfive <- cost[1:5,1]
 cost[1:20,]
+```
+
+```
+## # A tibble: 20 x 2
+##                        EVTYPE cost_billions
+##                        <fctr>         <dbl>
+##  1          HURRICANE/TYPHOON        69.300
+##  2                STORM SURGE        43.300
+##  3                  HURRICANE        11.900
+##  4             TROPICAL STORM         7.700
+##  5                RIVER FLOOD         5.120
+##  6                   WILDFIRE         4.770
+##  7           STORM SURGE/TIDE         4.640
+##  8           WILD/FOREST FIRE         3.000
+##  9  HEAVY RAIN/SEVERE WEATHER         2.500
+## 10 TORNADOES, TSTM WIND, HAIL         1.600
+## 11        SEVERE THUNDERSTORM         1.210
+## 12                    DROUGHT         1.050
+## 13                 HEAVY RAIN         0.694
+## 14                   BLIZZARD         0.659
+## 15                 WILD FIRES         0.624
+## 16                    TYPHOON         0.600
+## 17                  LANDSLIDE         0.325
+## 18          FLASH FLOOD/FLOOD         0.272
+## 19             HURRICANE ERIN         0.258
+## 20                  HAILSTORM         0.241
 ```
 
 
@@ -179,7 +263,8 @@ Just like in our analysis of question one, we see a lot of repeats.  For a more 
 
 We'll just hop into the plot
 
-```{r plotcost}
+
+```r
 stormcost <- storm %>% filter(as.character(EVTYPE) %in% as.character(costlyfive$EVTYPE))
 ggplot(stormcost, aes(EVTYPE, log(totaldmg))) + 
         geom_boxplot() + 
@@ -187,6 +272,12 @@ ggplot(stormcost, aes(EVTYPE, log(totaldmg))) +
         ylab("log(Total Damage)") +
         ggtitle("Total Costs per Event")
 ```
+
+```
+## Warning: Removed 525 rows containing non-finite values (stat_boxplot).
+```
+
+![](Storm_effects_on_health_files/figure-html/plotcost-1.png)<!-- -->
 
 ## Conclusions
 
